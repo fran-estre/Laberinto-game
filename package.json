@@ -1,0 +1,18 @@
+{
+  "name": "laberinto-dinamico",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:client": "npm --workspace @laberinto/client run dev",
+    "build:client": "npm --workspace @laberinto/client run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8"
+  }
+}

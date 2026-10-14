@@ -1,0 +1,41 @@
+# Dependencias
+node_modules/
+
+# Builds y salidas generadas
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Pruebas y cobertura
+coverage/
+.nyc_output/
+
+# Variables de entorno locales
+.env
+.env.*
+!.env.example
+
+# Logs y archivos temporales
+*.log
+logs/
+tmp/
+temp/
+
+# Cachés de herramientas
+.cache/
+.vite/
+.eslintcache
+
+# Archivos del editor y del sistema operativo
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
