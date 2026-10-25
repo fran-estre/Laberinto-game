@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": { "dev": "vite", "build": "tsc -b && vite build" },
-  "dependencies": { "@laberinto/engine": "*", "react": "^18.3.1", "react-dom": "^18.3.1" },
+  "dependencies": { "@laberinto/engine": "*", "react": "^18.3.1", "react-dom": "^18.3.1", "socket.io-client": "^4.8.1" },
   "devDependencies": { "@types/react": "^18.3.18", "@types/react-dom": "^18.3.5" }
 }

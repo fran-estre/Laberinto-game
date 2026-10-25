@@ -4,9 +4,16 @@ import { nextRotation } from "./tiles.js";
 const INSERTABLE = [1, 3, 5, 7] as const;
 const SHAPES: TileShape[] = ["I", "L", "T"];
 const fixed = (row: number, col: number) => row % 2 === 0 && col % 2 === 0;
+function fixedRotation(row: number, col: number): Rotation {
+  if (row === 0 && col === 0) return 90;
+  if (row === 0 && col === BOARD_SIZE - 1) return 180;
+  if (row === BOARD_SIZE - 1 && col === 0) return 0;
+  if (row === BOARD_SIZE - 1 && col === BOARD_SIZE - 1) return 270;
+  return ((row + col) % 4 * 90) as Rotation;
+}
 const clone = <T>(value: T): T => structuredClone(value);
 
-export interface GenerateOptions { seed?: number; objectIds?: string[] }
+export interface GenerateOptions { seed?: number; objectIds?: string[]; excludedObjectPositions?: Position[] }
 
 function random(seed: number): () => number {
   let state = seed >>> 0;
@@ -18,6 +25,7 @@ export function generateBoard(options: GenerateOptions = {}): BoardState {
   let id = 0;
   const tiles: Tile[][] = [];
   const objects = [...(options.objectIds ?? [])];
+  const excludedObjects = new Set((options.excludedObjectPositions ?? []).map((position) => `${position.row},${position.col}`));
   for (let row = 0; row < BOARD_SIZE; row++) {
     const line: Tile[] = [];
     for (let col = 0; col < BOARD_SIZE; col++) {
@@ -25,9 +33,9 @@ export function generateBoard(options: GenerateOptions = {}): BoardState {
       line.push({
         id: `tile-${id++}`,
         shape: isFixed ? "L" : SHAPES[Math.floor(next() * SHAPES.length)]!,
-        rotation: isFixed ? ((row + col) % 4 * 90) as Rotation : (Math.floor(next() * 4) * 90) as Rotation,
+        rotation: isFixed ? fixedRotation(row, col) : (Math.floor(next() * 4) * 90) as Rotation,
         fixed: isFixed,
-        objectId: objects.shift()
+        objectId: excludedObjects.has(`${row},${col}`) ? undefined : objects.shift()
       });
     }
     tiles.push(line);

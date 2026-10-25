@@ -11,7 +11,13 @@ export interface Tile {
   fixed: boolean;
   objectId?: string;
 }
-export interface PlayerToken { id: string; position: Position }
+export interface PlayerToken {
+  id: string;
+  position: Position;
+  startPosition: Position;
+  objectives: string[];
+  objectiveIndex: number;
+}
 export interface BoardState {
   tiles: Tile[][];
   spare: Tile;

@@ -25,12 +25,12 @@ describe("movimiento y conexiones", () => {
 
   it("mueve al jugador sólo a una celda alcanzable y no muta el estado", () => {
     const tiles = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => ({ shape: "CROSS" as const, rotation: 0 as const })));
-    const original = addPlayer(boardFrom(tiles), { id: "p1", position: { row: 4, col: 4 } });
+    const original = addPlayer(boardFrom(tiles), { id: "p1", position: { row: 4, col: 4 }, startPosition: { row: 4, col: 4 }, objectives: [], objectiveIndex: 0 });
     const moved = movePlayer(original, "p1", { row: 4, col: 6 });
     expect(moved.players[0]!.position).toEqual({ row: 4, col: 6 });
     expect(original.players[0]!.position).toEqual({ row: 4, col: 4 });
     const blockedTiles = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => ({ shape: "I" as const, rotation: 0 as const })));
-    const blocked = addPlayer(boardFrom(blockedTiles), { id: "p1", position: { row: 4, col: 4 } });
+    const blocked = addPlayer(boardFrom(blockedTiles), { id: "p1", position: { row: 4, col: 4 }, startPosition: { row: 4, col: 4 }, objectives: [], objectiveIndex: 0 });
     expect(() => movePlayer(blocked, "p1", { row: 4, col: 5 })).toThrow("not reachable");
   });
 });
