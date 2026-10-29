@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { addPlayer, findRoute, generateBoard, reachable, type BoardState, type Direction, type Insertion, type Position, type Tile } from "@laberinto/engine";
-import { isWrapBetween, oppositeOutsidePosition, outsidePosition } from "./tokenAnimation.js";
+import { addPlayer, canMove, findRoute, generateBoard, reachable, type BoardState, type Direction, type Insertion, type Position, type Tile } from "@laberinto/engine";
+import { isOutsidePosition, isWrapBetween, oppositeOutsidePosition, outsidePosition } from "./tokenAnimation.js";
+import { adjacentPosition, directionForKey, isTextInputTarget, KEY_REPEAT_DELAY, KEY_REPEAT_INTERVAL } from "./keyboardControls.js";
 
 const SIZE = 540;
 const CELL = SIZE / 9;
@@ -78,18 +79,65 @@ export function App() {
   const player = board.players.find((item) => item.id === playerId) ?? board.players[0]!;
   const reachableCells = useMemo(() => new Set(reachable(board, player.position).map((position) => `${position.row},${position.col}`)), [board, player.position]);
   const myTurn = serverGame ? serverGame.activePlayerId === playerId : true;
+  const keyboardState = useRef({ board, playerId, myTurn, phase: serverGame?.phase });
+  keyboardState.current = { board, playerId, myTurn, phase: serverGame?.phase };
   const [message, setMessage] = useState("Selecciona una casilla alcanzable.");
   const createRoom = () => { if (!name.trim()) return setError("Escribe tu nombre"); socket.connect(); socket.emit("room:create", { name }); };
   const joinRoom = () => { if (!name.trim() || !joinCode.trim()) return setError("Escribe tu nombre y código"); socket.connect(); socket.emit("room:join", { code: joinCode.trim().toUpperCase(), name }); };
   const insertBoard = (insertion: Insertion) => { if (myTurn && serverGame?.phase === "INSERTION") socket.emit("game:insert", { insertion }); };
   const move = (position: Position) => { if (myTurn && serverGame?.phase === "MOVEMENT" && reachableCells.has(`${position.row},${position.col}`)) socket.emit("game:move", { destination: position }); };
+  useEffect(() => {
+    if (screen !== "game") return;
+    let heldKey: string | undefined;
+    let repeatDelay: ReturnType<typeof setTimeout> | undefined;
+    let repeatInterval: ReturnType<typeof setInterval> | undefined;
+    const stopRepeating = () => {
+      if (repeatDelay) clearTimeout(repeatDelay);
+      if (repeatInterval) clearInterval(repeatInterval);
+      heldKey = undefined;
+      repeatDelay = undefined;
+      repeatInterval = undefined;
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const direction = directionForKey(event.key);
+      if (!direction || isTextInputTarget(event.target) || event.repeat) return;
+      event.preventDefault();
+      stopRepeating();
+      heldKey = event.key;
+      const moveByDirection = (currentDirection: Direction) => {
+        const { board: currentBoard, playerId: currentPlayerId, myTurn: currentTurn, phase } = keyboardState.current;
+        const currentPlayer = currentBoard.players.find((candidate) => candidate.id === currentPlayerId);
+        if (!currentPlayer || !currentTurn || phase !== "MOVEMENT") return;
+        const destination = adjacentPosition(currentPlayer.position, currentDirection);
+        if (canMove(currentBoard, currentPlayer.position, currentDirection)) socket.emit("game:move", { destination });
+      };
+      moveByDirection(direction);
+      repeatDelay = setTimeout(() => {
+        repeatInterval = setInterval(() => {
+          const heldDirection = heldKey ? directionForKey(heldKey) : undefined;
+          if (heldDirection) moveByDirection(heldDirection);
+        }, KEY_REPEAT_INTERVAL);
+      }, KEY_REPEAT_DELAY);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === heldKey) stopRepeating();
+    };
+    const onWindowBlur = stopRepeating;
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onWindowBlur);
+    return () => { stopRepeating(); window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onWindowBlur); };
+  }, [screen, socket]);
   const animateToken = (previous: BoardState, playerIdToAnimate: string, destination: Position) => {
     const source = previous.players.find((candidate) => candidate.id === playerIdToAnimate)?.position;
     const timers = animationTimers.current.get(playerIdToAnimate) ?? [];
     timers.forEach((timer) => clearTimeout(timer));
     animationTimers.current.delete(playerIdToAnimate);
+    const wasOutside = visualPositions[playerIdToAnimate] !== undefined && visualPositions[playerIdToAnimate] !== null && isOutsidePosition(visualPositions[playerIdToAnimate]!);
+    if (wasOutside) setInstantTokens((current) => ({ ...current, [playerIdToAnimate]: true }));
     if (!source || (source.row === destination.row && source.col === destination.col)) {
       setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: destination }));
+      if (wasOutside) setTimeout(() => setInstantTokens((current) => ({ ...current, [playerIdToAnimate]: false })), 0);
       return;
     }
     const directWrap = isWrapBetween(source, destination);
@@ -102,6 +150,7 @@ export function App() {
     console.log("Camino calculado:", route.map(describePosition).join(" → "));
     setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: route[0]! }));
     const routeTimers: ReturnType<typeof setTimeout>[] = [];
+    if (wasOutside) routeTimers.push(setTimeout(() => setInstantTokens((current) => ({ ...current, [playerIdToAnimate]: false })), 0));
     let elapsed = 0;
     for (let index = 1; index < route.length; index++) {
       const from = route[index - 1]!;
