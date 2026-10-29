@@ -4,11 +4,13 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
     "dev:client": "npm --workspace @laberinto/client run dev",
     "build:client": "npm --workspace @laberinto/client run build",
     "dev:server": "npm --workspace @laberinto/server run dev",
-    "build:server": "npm --workspace @laberinto/server run build"
+    "build:server": "npm --workspace @laberinto/server run build",
+    "verify": "npm run typecheck && npm test && npm run build:client && npm run build:server"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

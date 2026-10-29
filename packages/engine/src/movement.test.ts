@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addPlayer, generateBoard, movePlayer, reachable, findRoute } from "./index.js";
+import { addPlayer, canMove, generateBoard, movePlayer, reachable, findRoute } from "./index.js";
 import type { BoardState, Tile } from "./index.js";
 
 function boardFrom(rows: Array<Array<Pick<Tile, "shape" | "rotation">>>): BoardState {
@@ -15,6 +15,22 @@ describe("movimiento y conexiones", () => {
     const board = boardFrom(tiles);
     expect(reachable(board, { row: 4, col: 4 })).toHaveLength(81);
     expect(findRoute(board, { row: 4, col: 4 }, { row: 4, col: 6 })).toEqual([{ row: 4, col: 4 }, { row: 4, col: 5 }, { row: 4, col: 6 }]);
+  });
+
+  it("conecta los bordes opuestos cuando ambas piezas tienen salida", () => {
+    const tiles = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => ({ shape: "CROSS" as const, rotation: 0 as const })));
+    const board = boardFrom(tiles);
+    expect(findRoute(board, { row: 0, col: 4 }, { row: 8, col: 4 })).toEqual([{ row: 0, col: 4 }, { row: 8, col: 4 }]);
+    board.tiles[0]![4] = { ...board.tiles[0]![4]!, shape: "I", rotation: 90 };
+    expect(canMove(board, { row: 0, col: 4 }, "N")).toBe(false);
+  });
+
+  it("permite mover al jugador horizontal y verticalmente entre extremos", () => {
+    const board = boardFrom(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => ({ shape: "CROSS" as const, rotation: 0 as const }))));
+    const withPlayer = addPlayer(board, { id: "p1", position: { row: 4, col: 8 }, startPosition: { row: 4, col: 8 }, objectives: [], objectiveIndex: 0 });
+    expect(movePlayer(withPlayer, "p1", { row: 4, col: 0 }).players[0]!.position).toEqual({ row: 4, col: 0 });
+    const vertical = addPlayer(board, { id: "p1", position: { row: 8, col: 4 }, startPosition: { row: 8, col: 4 }, objectives: [], objectiveIndex: 0 });
+    expect(movePlayer(vertical, "p1", { row: 0, col: 4 }).players[0]!.position).toEqual({ row: 0, col: 4 });
   });
 
   it("no atraviesa paredes y devuelve null si no hay ruta", () => {
