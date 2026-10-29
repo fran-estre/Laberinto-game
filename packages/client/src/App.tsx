@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { addPlayer, findRoute, generateBoard, reachable, type BoardState, type Direction, type Insertion, type Position, type Tile } from "@laberinto/engine";
+import { isWrapBetween, oppositeOutsidePosition, outsidePosition } from "./tokenAnimation.js";
 
 const SIZE = 540;
 const CELL = SIZE / 9;
 const FALLBACK_ID = "player-1";
+const TOKEN_STEP_DURATION = 500;
+const TOKEN_STEP_GAP = 50;
 const INSERTABLE = [1, 3, 5, 7] as const;
 const START_POSITIONS: Position[] = [{ row: 0, col: 0 }, { row: 0, col: 8 }, { row: 8, col: 0 }, { row: 8, col: 8 }];
 type Screen = "home" | "lobby" | "game";
 type ServerGameState = { board: Tile[][]; spare: Tile; phase: "INSERTION" | "MOVEMENT" | "FINISHED"; activePlayerId: string; players: Array<{ id: string; position: Position; objectivesCollected: number; objectivesTotal: number }> };
 type VisualPosition = Position | null;
-const isOutsideBoard = (position: Position) => position.row < 0 || position.row >= 9 || position.col < 0 || position.col >= 9;
-const isWrapBetween = (from: Position, to: Position) => (from.row === to.row && Math.abs(from.col - to.col) === 8) || (from.col === to.col && Math.abs(from.row - to.row) === 8);
-const outsidePosition = (from: Position, to: Position): Position => from.row === to.row
-  ? { row: from.row, col: from.col === 0 ? -1 : 9 }
-  : { row: from.row === 0 ? -1 : 9, col: from.col };
+const describePosition = (position: Position) => `(${position.row}, ${position.col})`;
 
 function tilePath(tile: Tile): string {
   const openings: Record<Direction, string> = { N: `M ${CELL / 2} 0 L ${CELL / 2} ${CELL / 2}`, E: `M ${CELL} ${CELL / 2} L ${CELL / 2} ${CELL / 2}`, S: `M ${CELL / 2} ${CELL} L ${CELL / 2} ${CELL / 2}`, W: `M 0 ${CELL / 2} L ${CELL / 2} ${CELL / 2}` };
@@ -99,6 +98,8 @@ export function App() {
       setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: destination }));
       return;
     }
+    console.groupCollapsed(`[Ficha ${playerIdToAnimate}] movimiento ${describePosition(source)} → ${describePosition(destination)}`);
+    console.log("Camino calculado:", route.map(describePosition).join(" → "));
     setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: route[0]! }));
     const routeTimers: ReturnType<typeof setTimeout>[] = [];
     let elapsed = 0;
@@ -106,19 +107,32 @@ export function App() {
       const from = route[index - 1]!;
       const position = route[index]!;
       if (isWrapBetween(from, position)) {
-        const outside = outsidePosition(from, position);
-        routeTimers.push(setTimeout(() => setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: outside })), elapsed + 20));
+        const outside = outsidePosition(from);
+        const oppositeOutside = oppositeOutsidePosition(position);
         routeTimers.push(setTimeout(() => {
+          console.log(`Paso ${describePosition(from)} → ${describePosition(position)}: visible; sale del tablero hacia ${describePosition(outside)}.`);
+          setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: outside }));
+        }, elapsed + TOKEN_STEP_GAP));
+        routeTimers.push(setTimeout(() => {
+          console.log(`Paso ${describePosition(from)} → ${describePosition(position)}: oculta; se reubica en ${describePosition(oppositeOutside)}.`);
           setInstantTokens((current) => ({ ...current, [playerIdToAnimate]: true }));
+          setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: oppositeOutside }));
+        }, elapsed + TOKEN_STEP_GAP + TOKEN_STEP_DURATION + 20));
+        routeTimers.push(setTimeout(() => {
+          console.log(`Paso ${describePosition(from)} → ${describePosition(position)}: oculta → visible; entra hasta el centro de ${describePosition(position)}.`);
+          setInstantTokens((current) => ({ ...current, [playerIdToAnimate]: false }));
           setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: position }));
-          setTimeout(() => setInstantTokens((current) => ({ ...current, [playerIdToAnimate]: false })), 20);
-        }, elapsed + 520));
-        elapsed += 520;
+        }, elapsed + TOKEN_STEP_GAP + TOKEN_STEP_DURATION + 40));
+        elapsed += TOKEN_STEP_GAP + TOKEN_STEP_DURATION + 40 + TOKEN_STEP_DURATION;
       } else {
-        routeTimers.push(setTimeout(() => setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: position })), elapsed + 500));
-        elapsed += 500;
+        routeTimers.push(setTimeout(() => {
+          console.log(`Paso ${describePosition(from)} → ${describePosition(position)}: visible; centro → centro.`);
+          setVisualPositions((current) => ({ ...current, [playerIdToAnimate]: position }));
+        }, elapsed + TOKEN_STEP_GAP));
+        elapsed += TOKEN_STEP_GAP + TOKEN_STEP_DURATION;
       }
     }
+    routeTimers.push(setTimeout(() => console.groupEnd(), elapsed + 550));
     animationTimers.current.set(playerIdToAnimate, routeTimers);
   };
   const canInsert = myTurn && serverGame?.phase === "INSERTION";
@@ -132,7 +146,7 @@ export function App() {
   if (screen === "lobby") return <main className="lobby-screen"><div className="lobby-card"><p className="eyebrow">SALA DE ESPERA</p><h1>{room?.code ?? joinCode}</h1><p>Comparte este código.</p><div className="players">{room?.players.map((remote) => <div className="player-row" key={remote.id}><span className="dot player-dot" />{remote.name}{remote.id === room.hostId && " · anfitrión"}</div>)}</div>{room?.hostId === myPlayerId ? <button className="gold-button" disabled={!room || room.players.length < 2} onClick={() => socket.emit("room:start")}>Iniciar partida</button> : <p className="hint">Esperando al anfitrión…</p>}{error && <p className="error">{error}</p>}</div></main>;
 
   return <main><header><div><p className="eyebrow">MVP · FASE 4</p><h1>Laberinto Dinámico</h1><p className="subtitle">{myTurn ? "Tu turno" : "Turno del rival"}</p></div><div className="turn-info"><div className="badge">{myTurn ? "TU TURNO" : "TURNO DEL RIVAL"}</div><div className="objective-summary"><span>Objetivo actual</span><strong>{privateObjective ?? "Completados"}</strong><small>Progreso: {privateProgress.index} / {privateProgress.total}</small></div></div></header>
-    <section className="layout"><div className="board-wrap"><div className="board" style={{ width: SIZE, height: SIZE }}>{board.tiles.map((row, r) => row.map((tile, c) => <Cell key={tile.id} tile={tile} objective={tile.objectId === privateObjective} doorState={doorAt(r, c)} active={reachableCells.has(`${r},${c}`)} onClick={() => move({ row: r, col: c })} />))}{board.players.map((remote, index) => { const position = visualPositions[remote.id] ?? null; return position && <div className={`token player-token-${index} ${isOutsideBoard(position) ? "token-wrapping" : ""} ${instantTokens[remote.id] ? "token-instant" : ""}`} role="img" aria-label={`Ficha de ${remote.id === playerId ? "tu jugador" : `jugador ${index + 1}`}`} key={remote.id} style={{ left: position.col * CELL + CELL / 2, top: position.row * CELL + CELL / 2 }}>♞</div>; })}</div><p className="message">{winner ? "¡Victoria! Has escapado del laberinto." : message}</p><button className="gold-button end-turn" disabled={!myTurn || serverGame?.phase !== "MOVEMENT" || winner} onClick={() => socket.emit("turn:end")}>Finalizar turno</button></div>
+    <section className="layout"><div className="board-wrap"><div className="board" style={{ width: SIZE, height: SIZE }}>{board.tiles.map((row, r) => row.map((tile, c) => <Cell key={tile.id} tile={tile} objective={tile.objectId === privateObjective} doorState={doorAt(r, c)} active={reachableCells.has(`${r},${c}`)} onClick={() => move({ row: r, col: c })} />))}{board.players.map((remote, index) => { const position = visualPositions[remote.id] ?? null; return position && <div className={`token player-token-${index} ${instantTokens[remote.id] ? "token-instant" : ""}`} role="img" aria-label={`Ficha de ${remote.id === playerId ? "tu jugador" : `jugador ${index + 1}`}`} key={remote.id} style={{ left: position.col * CELL + CELL / 2, top: position.row * CELL + CELL / 2 }}>♞</div>; })}</div><p className="message">{winner ? "¡Victoria! Has escapado del laberinto." : message}</p><button className="gold-button end-turn" disabled={!myTurn || serverGame?.phase !== "MOVEMENT" || winner} onClick={() => socket.emit("turn:end")}>Finalizar turno</button></div>
       <aside><div className="panel"><h2>Pieza adicional</h2><div className="spare"><Cell tile={board.spare} active={false} disabled onClick={() => undefined} /></div><button className="gold-button" disabled={!canInsert} onClick={() => socket.emit("game:rotate", { quarterTurns: 1 })}>↻ Rotar 90°</button></div><div className="panel"><h2>Inserción</h2><p className="hint">Una inserción por turno.</p><div className="controls">{INSERTABLE.map((index) => <div className="control-group" key={`row-${index}`}><span>Fila {index + 1}</span><button disabled={!canInsert} aria-label={`Insertar por la izquierda en la fila ${index + 1}`} onClick={() => insertBoard({ axis: "row", index, from: "left" })}>←</button><button disabled={!canInsert} aria-label={`Insertar por la derecha en la fila ${index + 1}`} onClick={() => insertBoard({ axis: "row", index, from: "right" })}>→</button></div>)}{INSERTABLE.map((index) => <div className="control-group" key={`column-${index}`}><span>Col. {index + 1}</span><button disabled={!canInsert} aria-label={`Insertar por arriba en la columna ${index + 1}`} onClick={() => insertBoard({ axis: "column", index, from: "top" })}>↑</button><button disabled={!canInsert} aria-label={`Insertar por abajo en la columna ${index + 1}`} onClick={() => insertBoard({ axis: "column", index, from: "bottom" })}>↓</button></div>)}</div></div></aside>
     </section>
   </main>;

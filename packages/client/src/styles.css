@@ -20,7 +20,6 @@ aside { width: 260px; display: grid; gap: 18px; } .panel { background: #2a211a; 
 .player-token-1 { background: #3c6fa3; border-color: #9bd4ff; box-shadow: 0 0 12px #6db8ff; }
 .player-token-2 { background: #7b4ba1; border-color: #e0b7ff; box-shadow: 0 0 12px #c987ff; }
 .player-token-3 { background: #b56a2d; border-color: #ffd19b; box-shadow: 0 0 12px #ffad62; }
-.token-wrapping { opacity: 0; }
 .token-instant { transition: none !important; }
 .cell:focus-visible, .gold-button:focus-visible, .controls button:focus-visible { outline: 3px solid #fff0ac; outline-offset: 2px; }
 .gold-button:disabled, .controls button:disabled, .cell:disabled { cursor: not-allowed; opacity: .45; }
