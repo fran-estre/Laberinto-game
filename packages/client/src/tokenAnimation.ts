@@ -18,3 +18,7 @@ export function oppositeOutsidePosition(to: Position): Position {
   if (to.row === 0) return { row: -1, col: to.col };
   return { row: 9, col: to.col };
 }
+
+export function isOutsidePosition(position: Position): boolean {
+  return position.row < 0 || position.row >= 9 || position.col < 0 || position.col >= 9;
+}
