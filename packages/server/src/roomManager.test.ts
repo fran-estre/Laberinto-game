@@ -41,8 +41,8 @@ describe("RoomManager", () => {
     const created = manager.createRoom("Ana");
     const second = manager.joinRoom(created.room.code, "Luis");
     manager.start(created.room.code, created.playerId);
-    const objective = manager.getPrivateState(created.room.code, created.playerId).currentObjective;
     let state: ReturnType<RoomManager["move"]> | undefined;
+    let collectedPlayerId: string | undefined;
     const insertions = [
       { axis: "row" as const, index: 1 as const, from: "left" as const },
       { axis: "row" as const, index: 3 as const, from: "left" as const },
@@ -58,14 +58,18 @@ describe("RoomManager", () => {
       const inserted = manager.doInsert(created.room.code, activeId, insertions[turn % insertions.length]!);
       const board = { tiles: inserted.board as BoardState["tiles"], spare: inserted.spare as BoardState["spare"], players: [] } satisfies BoardState;
       const activePosition = inserted.players.find((player) => player.id === activeId)!.position;
+      const objective = manager.getPrivateState(created.room.code, activeId).currentObjective;
       const target = reachable(board, activePosition).find((position) => board.tiles[position.row]![position.col]!.objectId === objective);
-      if (target) state = manager.move(created.room.code, activeId, target);
+      if (target) {
+        state = manager.move(created.room.code, activeId, target);
+        collectedPlayerId = activeId;
+      }
       else manager.endTurn(created.room.code, activeId);
     }
     expect(state).toBeDefined();
     const collectedState = state!;
     expect(collectedState.collected).toBe(true);
     expect(collectedState.state.phase).toBe("INSERTION");
-    expect(collectedState.state.activePlayerId).toBe(second.playerId);
+    expect(collectedState.state.activePlayerId).toBe(collectedPlayerId === created.playerId ? second.playerId : created.playerId);
   });
 });
