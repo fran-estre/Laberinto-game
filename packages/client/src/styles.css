@@ -10,3 +10,17 @@ aside { width: 260px; display: grid; gap: 18px; } .panel { background: #2a211a; 
 .other-token { background: #3c6fa3; border-color: #9bd4ff; box-shadow: 0 0 12px #6db8ff; }
 .lobby-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; } .lobby-card { width: min(440px, 100%); padding: 38px; background: #2a211a; border: 1px solid #806034; box-shadow: 0 12px 35px #0008; text-align: center; } .lobby-card h1 { font-size: 34px; margin-bottom: 16px; } .lobby-card input { width: 100%; padding: 12px; margin: 7px 0; background: #17120f; color: #f4e5bc; border: 1px solid #806034; font: inherit; } .lobby-card .gold-button { margin-top: 8px; } .divider { margin: 18px 0 8px; color: #8f7951; } .players { margin: 20px 0; text-align: left; border-top: 1px solid #806034; border-bottom: 1px solid #806034; padding: 10px 0; } .player-row { padding: 9px 0; color: #e1c98d; } .player-row .dot { margin-right: 9px; } .error { color: #e58c7b; }
 .end-turn:disabled { display: none; }
+
+/* Estilo medieval, movimiento de fichas y accesibilidad visual. */
+.token { transition: left 500ms ease, top 500ms ease; will-change: left, top; }
+.door { fill: #40251b; stroke: #e1bc5b; stroke-width: 3; opacity: .95; pointer-events: none; }
+.door path, .door circle { fill: none; stroke: #ffe7a1; stroke-width: 3; }
+.door-open { fill: #2f5b42; stroke: #9fe0a8; }
+.door-open path, .door-open circle { stroke: #d5ffcf; }
+.player-token-1 { background: #3c6fa3; border-color: #9bd4ff; box-shadow: 0 0 12px #6db8ff; }
+.player-token-2 { background: #7b4ba1; border-color: #e0b7ff; box-shadow: 0 0 12px #c987ff; }
+.player-token-3 { background: #b56a2d; border-color: #ffd19b; box-shadow: 0 0 12px #ffad62; }
+.token-instant { transition: none !important; }
+.cell:focus-visible, .gold-button:focus-visible, .controls button:focus-visible { outline: 3px solid #fff0ac; outline-offset: 2px; }
+.gold-button:disabled, .controls button:disabled, .cell:disabled { cursor: not-allowed; opacity: .45; }
+@media (prefers-reduced-motion: reduce) { .token { transition: none; } * { scroll-behavior: auto !important; } }
