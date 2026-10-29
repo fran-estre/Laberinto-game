@@ -11,6 +11,7 @@ function fixedRotation(row: number, col: number): Rotation {
   if (row === BOARD_SIZE - 1 && col === BOARD_SIZE - 1) return 270;
   return ((row + col) % 4 * 90) as Rotation;
 }
+const corner = (row: number, col: number) => (row === 0 || row === BOARD_SIZE - 1) && (col === 0 || col === BOARD_SIZE - 1);
 const clone = <T>(value: T): T => structuredClone(value);
 
 export interface GenerateOptions { seed?: number; objectIds?: string[]; excludedObjectPositions?: Position[] }
@@ -30,10 +31,11 @@ export function generateBoard(options: GenerateOptions = {}): BoardState {
     const line: Tile[] = [];
     for (let col = 0; col < BOARD_SIZE; col++) {
       const isFixed = fixed(row, col);
+      const isCorner = corner(row, col);
       line.push({
         id: `tile-${id++}`,
-        shape: isFixed ? "L" : SHAPES[Math.floor(next() * SHAPES.length)]!,
-        rotation: isFixed ? fixedRotation(row, col) : (Math.floor(next() * 4) * 90) as Rotation,
+        shape: isCorner ? "L" : SHAPES[Math.floor(next() * SHAPES.length)]!,
+        rotation: isCorner ? fixedRotation(row, col) : (Math.floor(next() * 4) * 90) as Rotation,
         fixed: isFixed,
         objectId: excludedObjects.has(`${row},${col}`) ? undefined : objects.shift()
       });

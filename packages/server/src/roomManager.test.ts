@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { reachable, type BoardState } from "@laberinto/engine";
 import { RoomManager } from "./roomManager.js";
 
 describe("RoomManager", () => {
@@ -40,13 +41,31 @@ describe("RoomManager", () => {
     const created = manager.createRoom("Ana");
     const second = manager.joinRoom(created.room.code, "Luis");
     manager.start(created.room.code, created.playerId);
-    const inserted = manager.doInsert(created.room.code, created.playerId, { axis: "row", index: 1, from: "left" });
     const objective = manager.getPrivateState(created.room.code, created.playerId).currentObjective;
-    const tiles = inserted.board as Array<Array<{ objectId?: string }>>;
-    const target = tiles.flatMap((row, rowIndex) => row.map((tile, colIndex) => tile.objectId === objective ? { row: rowIndex, col: colIndex } : undefined)).find(Boolean)!;
-    const state = manager.move(created.room.code, created.playerId, target);
-    expect(state.collected).toBe(true);
-    expect(state.state.phase).toBe("INSERTION");
-    expect(state.state.activePlayerId).toBe(second.playerId);
+    let state: ReturnType<RoomManager["move"]> | undefined;
+    const insertions = [
+      { axis: "row" as const, index: 1 as const, from: "left" as const },
+      { axis: "row" as const, index: 3 as const, from: "left" as const },
+      { axis: "row" as const, index: 5 as const, from: "left" as const },
+      { axis: "row" as const, index: 7 as const, from: "left" as const },
+      { axis: "column" as const, index: 1 as const, from: "top" as const },
+      { axis: "column" as const, index: 3 as const, from: "top" as const },
+      { axis: "column" as const, index: 5 as const, from: "top" as const },
+      { axis: "column" as const, index: 7 as const, from: "top" as const }
+    ];
+    for (let turn = 0; turn < 100 && !state; turn++) {
+      const activeId = turn % 2 === 0 ? created.playerId : second.playerId;
+      const inserted = manager.doInsert(created.room.code, activeId, insertions[turn % insertions.length]!);
+      const board = { tiles: inserted.board as BoardState["tiles"], spare: inserted.spare as BoardState["spare"], players: [] } satisfies BoardState;
+      const activePosition = inserted.players.find((player) => player.id === activeId)!.position;
+      const target = reachable(board, activePosition).find((position) => board.tiles[position.row]![position.col]!.objectId === objective);
+      if (target) state = manager.move(created.room.code, activeId, target);
+      else manager.endTurn(created.room.code, activeId);
+    }
+    expect(state).toBeDefined();
+    const collectedState = state!;
+    expect(collectedState.collected).toBe(true);
+    expect(collectedState.state.phase).toBe("INSERTION");
+    expect(collectedState.state.activePlayerId).toBe(second.playerId);
   });
 });

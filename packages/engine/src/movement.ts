@@ -13,8 +13,8 @@ const valid = (position: Position): boolean => position.row >= 0 && position.row
 export function canMove(board: BoardState, from: Position, direction: Direction): boolean {
   if (!valid(from)) return false;
   const [rowDelta, colDelta] = DELTAS[direction];
-  const to = { row: from.row + rowDelta, col: from.col + colDelta };
-  if (!valid(to)) return false;
+  const rawTo = { row: from.row + rowDelta, col: from.col + colDelta };
+  const to = { row: (rawTo.row + BOARD_SIZE) % BOARD_SIZE, col: (rawTo.col + BOARD_SIZE) % BOARD_SIZE };
   const current = board.tiles[from.row]![from.col]!;
   const target = board.tiles[to.row]![to.col]!;
   return hasOpening(current.shape, current.rotation, direction) && hasOpening(target.shape, target.rotation, OPPOSITE[direction]);
@@ -29,7 +29,7 @@ export function reachable(board: BoardState, start: Position): Position[] {
     for (const direction of DIRECTIONS) {
       if (!canMove(board, current, direction)) continue;
       const [rowDelta, colDelta] = DELTAS[direction];
-      const next = { row: current.row + rowDelta, col: current.col + colDelta };
+      const next = { row: (current.row + rowDelta + BOARD_SIZE) % BOARD_SIZE, col: (current.col + colDelta + BOARD_SIZE) % BOARD_SIZE };
       if (!visited.has(key(next))) { visited.add(key(next)); queue.push(next); }
     }
   }
@@ -46,7 +46,7 @@ export function findRoute(board: BoardState, start: Position, destination: Posit
     for (const direction of DIRECTIONS) {
       if (!canMove(board, current, direction)) continue;
       const [rowDelta, colDelta] = DELTAS[direction];
-      const next = { row: current.row + rowDelta, col: current.col + colDelta };
+      const next = { row: (current.row + rowDelta + BOARD_SIZE) % BOARD_SIZE, col: (current.col + colDelta + BOARD_SIZE) % BOARD_SIZE };
       if (!parents.has(key(next))) { parents.set(key(next), current); queue.push(next); }
     }
   }
