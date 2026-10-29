@@ -25,6 +25,18 @@ describe("movimiento y conexiones", () => {
     expect(canMove(board, { row: 0, col: 4 }, "N")).toBe(false);
   });
 
+  it("mantiene los cruces de borde como tramos de una ruta más larga", () => {
+    const board = boardFrom(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => ({ shape: "CROSS" as const, rotation: 0 as const }))));
+    board.tiles[0]![0] = { ...board.tiles[0]![0]!, shape: "I", rotation: 90 };
+    board.tiles[0]![8] = { ...board.tiles[0]![8]!, shape: "I", rotation: 0 };
+    expect(findRoute(board, { row: 0, col: 0 }, { row: 8, col: 2 })).toEqual([
+      { row: 0, col: 0 },
+      { row: 0, col: 1 },
+      { row: 8, col: 1 },
+      { row: 8, col: 2 }
+    ]);
+  });
+
   it("permite mover al jugador horizontal y verticalmente entre extremos", () => {
     const board = boardFrom(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => ({ shape: "CROSS" as const, rotation: 0 as const }))));
     const withPlayer = addPlayer(board, { id: "p1", position: { row: 4, col: 8 }, startPosition: { row: 4, col: 8 }, objectives: [], objectiveIndex: 0 });
