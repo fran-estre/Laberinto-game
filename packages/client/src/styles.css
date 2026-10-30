@@ -6,6 +6,8 @@ aside { width: 260px; display: grid; gap: 18px; } .panel { background: #2a211a; 
 /* Los objetivos futuros siguen visibles, pero sólo el actual destaca en dorado. */
 .current-objective { fill: #dfbd58; stroke: #fff0ac; filter: drop-shadow(0 0 4px #e4bd50); }
 .future-objective { fill: #6f6656; stroke: #a89b7f; opacity: .85; }
+.object-icon { mix-blend-mode: screen; opacity: .7; }
+.current-objective .object-icon { opacity: 1; filter: sepia(1) saturate(2) drop-shadow(0 0 3px #e4bd50); }
 .exit-mark { fill: #fff0ac; font-size: 22px; font-weight: bold; stroke: #6d2c2c; stroke-width: 1px; }
 .other-token { background: #3c6fa3; border-color: #9bd4ff; box-shadow: 0 0 12px #6db8ff; }
 .lobby-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; } .lobby-card { width: min(440px, 100%); padding: 38px; background: #2a211a; border: 1px solid #806034; box-shadow: 0 12px 35px #0008; text-align: center; } .lobby-card h1 { font-size: 34px; margin-bottom: 16px; } .lobby-card input { width: 100%; padding: 12px; margin: 7px 0; background: #17120f; color: #f4e5bc; border: 1px solid #806034; font: inherit; } .lobby-card .gold-button { margin-top: 8px; } .divider { margin: 18px 0 8px; color: #8f7951; } .players { margin: 20px 0; text-align: left; border-top: 1px solid #806034; border-bottom: 1px solid #806034; padding: 10px 0; } .player-row { padding: 9px 0; color: #e1c98d; } .player-row .dot { margin-right: 9px; } .error { color: #e58c7b; }

@@ -43,6 +43,14 @@ const START_POSITIONS: Position[] = [
   { row: 8, col: 0 },
   { row: 8, col: 8 },
 ];
+const OBJECTIVE_ICONS = [
+  "/objectives/gem-chain.svg",
+  "/objectives/crown.svg",
+  "/objectives/scroll-quill.svg",
+  "/objectives/pendant-key.svg",
+  "/objectives/diamond-trophy.svg",
+  "/objectives/crown-coin.svg",
+] as const;
 type Screen = "home" | "lobby" | "game";
 type ServerGameState = {
   board: Tile[][];
@@ -61,6 +69,13 @@ type VisualPosition = Position | null;
 let animatedTileOffsets = new Map<string, { x: number; y: number }>();
 const describePosition = (position: Position) =>
   `(${position.row}, ${position.col})`;
+
+function objectiveIcon(objectId: string): string {
+  const number = Number(/^object-(\d+)$/.exec(objectId)?.[1]);
+  return Number.isInteger(number) && number > 0
+    ? OBJECTIVE_ICONS[(number - 1) % OBJECTIVE_ICONS.length]!
+    : OBJECTIVE_ICONS[0];
+}
 
 function tilePath(tile: Tile): string {
   const openings: Record<Direction, string> = {
@@ -126,10 +141,16 @@ function Cell({
           <g
             className={`object ${objective ? "current-objective" : "future-objective"}`}
           >
-            <path
-              d={`M ${CELL / 2} 10 L ${CELL / 2 + 8} ${CELL / 2} L ${CELL / 2} ${CELL - 10} L ${CELL / 2 - 8} ${CELL / 2} Z`}
+            <image
+              className="object-icon"
+              href={objectiveIcon(tile.objectId)}
+              x="12"
+              y="12"
+              width={CELL - 24}
+              height={CELL - 24}
+              preserveAspectRatio="xMidYMid meet"
+              aria-hidden="true"
             />
-            <circle cx={CELL / 2} cy={CELL / 2} r="3" />
           </g>
         )}
         {doorState && (
