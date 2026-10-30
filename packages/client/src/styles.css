@@ -60,6 +60,13 @@ aside { width: 260px; display: grid; gap: 18px; } .panel { background: #2a211a; 
 
 /* Estilo medieval, movimiento de fichas y accesibilidad visual. */
 .token { transition: left 500ms ease, top 500ms ease; will-change: left, top; }
+.tile-insertion { transition: transform 1000ms ease; will-change: transform; }
+.cell { transition: transform 1000ms ease; }
+.board-wrap > .end-turn { display: none; }
+.end-turn-right { width: 100%; }
+.end-turn-right:disabled { display: block; }
+aside .panel { padding: 16px; }
+aside .spare, aside .spare .cell { width: 104px; height: 104px; }
 .door { fill: #40251b; stroke: #e1bc5b; stroke-width: 3; opacity: .95; pointer-events: none; }
 .door path, .door circle { fill: none; stroke: #ffe7a1; stroke-width: 3; }
 .door-open { fill: #2f5b42; stroke: #9fe0a8; }
@@ -70,4 +77,45 @@ aside { width: 260px; display: grid; gap: 18px; } .panel { background: #2a211a; 
 .token-instant { transition: none !important; }
 .cell:focus-visible, .gold-button:focus-visible, .controls button:focus-visible { outline: 3px solid #fff0ac; outline-offset: 2px; }
 .gold-button:disabled, .controls button:disabled, .cell:disabled { cursor: not-allowed; opacity: .45; }
-@media (prefers-reduced-motion: reduce) { .token { transition: none; } * { scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) { .token, .cell, .tile-insertion { transition: none; } * { scroll-behavior: auto !important; } }
+
+.insertion-arrow {
+  width: 24px !important;
+  height: 24px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  display: grid;
+  place-items: center;
+}
+
+.insertion-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #edc76c;
+  box-shadow: 0 0 6px #edc76c99;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.insertion-arrow:hover .insertion-dot {
+  background: #fff0ac;
+  transform: scale(1.35);
+}
+
+.insertion-arrow:disabled .insertion-dot {
+  opacity: 0.45;
+}
+
+.copy-room-code {
+  margin: 0 auto 12px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #806034;
+  color: #edc76c;
+  cursor: pointer;
+}
+
+.copy-room-code:hover {
+  background: #57401f;
+}
