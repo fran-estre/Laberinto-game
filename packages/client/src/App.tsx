@@ -323,6 +323,19 @@ export function App() {
     socket.connect();
     socket.emit("room:join", { code: joinCode.trim().toUpperCase(), name });
   };
+  const pasteAndJoinRoom = async () => {
+    try {
+      const code = (await navigator.clipboard.readText()).trim();
+      if (!code)
+        return setError("El portapapeles no contiene un código de sala");
+      setJoinCode(code.toUpperCase());
+      if (!name.trim()) return setError("Escribe tu nombre");
+      socket.connect();
+      socket.emit("room:join", { code: code.toUpperCase(), name });
+    } catch {
+      setError("No se pudo leer el código del portapapeles");
+    }
+  };
   const copyRoomCode = async () => {
     const code = room?.code ?? joinCode;
     if (!code) return;
@@ -630,9 +643,14 @@ export function App() {
             onChange={(event) => setJoinCode(event.target.value)}
             placeholder="Código de sala"
           />
-          <button className="gold-button" onClick={joinRoom}>
-            Unirse a sala
-          </button>
+          <div className="join-room-actions">
+            <button className="gold-button" onClick={joinRoom}>
+              Unirse a sala
+            </button>
+            <button className="gold-button" onClick={pasteAndJoinRoom}>
+              Pegar y unirse
+            </button>
+          </div>
           {error && <p className="error">{error}</p>}
         </div>
       </main>
@@ -674,7 +692,6 @@ export function App() {
 
   return (
     <main>
-      <header></header>
       <section className="layout">
         <div className="board-wrap">
           <div className="board-stage">

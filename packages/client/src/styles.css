@@ -119,3 +119,9 @@ aside .spare, aside .spare .cell { width: 104px; height: 104px; }
 .copy-room-code:hover {
   background: #57401f;
 }
+
+.join-room-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
