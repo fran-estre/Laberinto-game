@@ -3,6 +3,7 @@ import { io } from "socket.io-client";
 import {
   addPlayer,
   canMove,
+  canEscape,
   findRoute,
   generateBoard,
   reachable,
@@ -597,7 +598,7 @@ export function App() {
         candidate.startPosition.row === row &&
         candidate.startPosition.col === col,
     );
-    return owner && owner.objectiveIndex >= owner.objectives.length
+    return owner && canEscape(board, owner.id)
       ? ("open" as const)
       : ("closed" as const);
   };
