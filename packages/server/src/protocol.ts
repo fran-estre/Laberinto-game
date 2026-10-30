@@ -21,5 +21,5 @@ export type ServerToClientEvents = {
 
 export interface PublicPlayerState { id: string; name: string; position: Position; connected: boolean; objectivesCollected: number; objectivesTotal: number }
 export interface PublicRoomState { code: string; hostId: string; started: boolean; players: PublicPlayerState[] }
-export interface PublicGameState { code: string; phase: "INSERTION" | "MOVEMENT" | "FINISHED"; activePlayerId: string; players: PublicPlayerState[]; board: unknown; spare: unknown }
+export interface PublicGameState { code: string; phase: "INSERTION" | "MOVEMENT" | "FINISHED"; activePlayerId: string; lastInsertion?: Insertion; players: PublicPlayerState[]; board: unknown; spare: unknown }
 export interface PrivateGameState { currentObjective?: string; objectiveIndex: number; objectiveTotal: number }

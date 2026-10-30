@@ -11,6 +11,53 @@ aside { width: 260px; display: grid; gap: 18px; } .panel { background: #2a211a; 
 .lobby-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; } .lobby-card { width: min(440px, 100%); padding: 38px; background: #2a211a; border: 1px solid #806034; box-shadow: 0 12px 35px #0008; text-align: center; } .lobby-card h1 { font-size: 34px; margin-bottom: 16px; } .lobby-card input { width: 100%; padding: 12px; margin: 7px 0; background: #17120f; color: #f4e5bc; border: 1px solid #806034; font: inherit; } .lobby-card .gold-button { margin-top: 8px; } .divider { margin: 18px 0 8px; color: #8f7951; } .players { margin: 20px 0; text-align: left; border-top: 1px solid #806034; border-bottom: 1px solid #806034; padding: 10px 0; } .player-row { padding: 9px 0; color: #e1c98d; } .player-row .dot { margin-right: 9px; } .error { color: #e58c7b; }
 .end-turn:disabled { display: none; }
 
+.board-stage > .board { position: absolute; left: 24px; top: 24px; }
+.board-stage { position: relative; width: 588px; height: 588px; }
+.layout { display: grid; grid-template-columns: 626px 260px; gap: 34px; }
+.board-wrap { width: 626px; flex: 0 0 626px; }
+.insertion-row:nth-child(1) .insertion-arrow { top: 100px; }
+.insertion-row:nth-child(2) .insertion-arrow { top: 220px; }
+.insertion-row:nth-child(3) .insertion-arrow { top: 340px; }
+.insertion-row:nth-child(4) .insertion-arrow { top: 460px; }
+.insertion-column:nth-child(5) .insertion-arrow { left: 102px; }
+.insertion-column:nth-child(6) .insertion-arrow { left: 222px; }
+.insertion-column:nth-child(7) .insertion-arrow { left: 342px; }
+.insertion-column:nth-child(8) .insertion-arrow { left: 462px; }
+.insertion-row .insertion-arrow, .insertion-column .insertion-arrow { width: 20px; height: 20px; }
+.insertion-row:nth-child(1) .insertion-arrow { top: 104px; }
+.insertion-row:nth-child(2) .insertion-arrow { top: 224px; }
+.insertion-row:nth-child(3) .insertion-arrow { top: 344px; }
+.insertion-row:nth-child(4) .insertion-arrow { top: 464px; }
+.insertion-column:nth-child(5) .insertion-arrow { left: 104px; }
+.insertion-column:nth-child(6) .insertion-arrow { left: 224px; }
+.insertion-column:nth-child(7) .insertion-arrow { left: 344px; }
+.insertion-column:nth-child(8) .insertion-arrow { left: 464px; }
+.insertion-arrows { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.insertion-row, .insertion-column { position: absolute; display: contents; }
+.insertion-row .insertion-arrow, .insertion-column .insertion-arrow { position: absolute; width: 24px; height: 28px; padding: 0; background: #57401f; border: 1px solid #b38a3d; color: #edc76c; cursor: pointer; pointer-events: auto; line-height: 1; }
+.insertion-row:nth-child(1) .insertion-arrow { top: 54px; }
+.insertion-row:nth-child(2) .insertion-arrow { top: 174px; }
+.insertion-row:nth-child(3) .insertion-arrow { top: 294px; }
+.insertion-row:nth-child(4) .insertion-arrow { top: 414px; }
+.insertion-row .insertion-arrow:first-child { left: 0; }
+.insertion-row .insertion-arrow:nth-child(2) { right: 0; }
+.insertion-column:nth-child(5) .insertion-arrow { left: 54px; }
+.insertion-column:nth-child(6) .insertion-arrow { left: 174px; }
+.insertion-column:nth-child(7) .insertion-arrow { left: 294px; }
+.insertion-column:nth-child(8) .insertion-arrow { left: 414px; }
+.insertion-column .insertion-arrow:first-child { top: 0; }
+.insertion-column .insertion-arrow:nth-child(2) { bottom: 0; }
+
+/* Centra las flechas sobre las posiciones internas 2, 4, 6 y 8. */
+.insertion-row:nth-child(1) .insertion-arrow { top: 100px; }
+.insertion-row:nth-child(2) .insertion-arrow { top: 220px; }
+.insertion-row:nth-child(3) .insertion-arrow { top: 340px; }
+.insertion-row:nth-child(4) .insertion-arrow { top: 460px; }
+.insertion-column:nth-child(5) .insertion-arrow { left: 102px; }
+.insertion-column:nth-child(6) .insertion-arrow { left: 222px; }
+.insertion-column:nth-child(7) .insertion-arrow { left: 342px; }
+.insertion-column:nth-child(8) .insertion-arrow { left: 462px; }
+
 /* Estilo medieval, movimiento de fichas y accesibilidad visual. */
 .token { transition: left 500ms ease, top 500ms ease; will-change: left, top; }
 .door { fill: #40251b; stroke: #e1bc5b; stroke-width: 3; opacity: .95; pointer-events: none; }

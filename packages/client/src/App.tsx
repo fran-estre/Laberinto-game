@@ -3,16 +3,16 @@ import { io } from "socket.io-client";
 import { addPlayer, canMove, findRoute, generateBoard, reachable, type BoardState, type Direction, type Insertion, type Position, type Tile } from "@laberinto/engine";
 import { isOutsidePosition, isWrapBetween, oppositeOutsidePosition, outsidePosition } from "./tokenAnimation.js";
 import { adjacentPosition, directionForKey, isTextInputTarget, KEY_REPEAT_DELAY, KEY_REPEAT_INTERVAL } from "./keyboardControls.js";
+import { INSERTABLE, isReverseInsertion } from "./insertionControls.js";
 
 const SIZE = 540;
 const CELL = SIZE / 9;
 const FALLBACK_ID = "player-1";
 const TOKEN_STEP_DURATION = 500;
 const TOKEN_STEP_GAP = 50;
-const INSERTABLE = [1, 3, 5, 7] as const;
 const START_POSITIONS: Position[] = [{ row: 0, col: 0 }, { row: 0, col: 8 }, { row: 8, col: 0 }, { row: 8, col: 8 }];
 type Screen = "home" | "lobby" | "game";
-type ServerGameState = { board: Tile[][]; spare: Tile; phase: "INSERTION" | "MOVEMENT" | "FINISHED"; activePlayerId: string; players: Array<{ id: string; position: Position; objectivesCollected: number; objectivesTotal: number }> };
+type ServerGameState = { board: Tile[][]; spare: Tile; phase: "INSERTION" | "MOVEMENT" | "FINISHED"; activePlayerId: string; lastInsertion?: Insertion; players: Array<{ id: string; position: Position; objectivesCollected: number; objectivesTotal: number }> };
 type VisualPosition = Position | null;
 const describePosition = (position: Position) => `(${position.row}, ${position.col})`;
 
@@ -81,7 +81,6 @@ export function App() {
   const myTurn = serverGame ? serverGame.activePlayerId === playerId : true;
   const keyboardState = useRef({ board, playerId, myTurn, phase: serverGame?.phase });
   keyboardState.current = { board, playerId, myTurn, phase: serverGame?.phase };
-  const [message, setMessage] = useState("Selecciona una casilla alcanzable.");
   const createRoom = () => { if (!name.trim()) return setError("Escribe tu nombre"); socket.connect(); socket.emit("room:create", { name }); };
   const joinRoom = () => { if (!name.trim() || !joinCode.trim()) return setError("Escribe tu nombre y código"); socket.connect(); socket.emit("room:join", { code: joinCode.trim().toUpperCase(), name }); };
   const insertBoard = (insertion: Insertion) => { if (myTurn && serverGame?.phase === "INSERTION") socket.emit("game:insert", { insertion }); };
@@ -185,6 +184,10 @@ export function App() {
     animationTimers.current.set(playerIdToAnimate, routeTimers);
   };
   const canInsert = myTurn && serverGame?.phase === "INSERTION";
+  const insertionButton = (insertion: Insertion, label: string, symbol: string) => {
+    const blocked = !canInsert || isReverseInsertion(serverGame?.lastInsertion, insertion);
+    return <button className="insertion-arrow" disabled={blocked} aria-label={label} title={blocked && canInsert ? "La inserción inversa inmediata está prohibida" : label} onClick={() => insertBoard(insertion)}>{symbol}</button>;
+  };
   const doorAt = (row: number, col: number) => {
     if (!START_POSITIONS.some((position) => position.row === row && position.col === col)) return undefined;
     const owner = board.players.find((candidate) => candidate.startPosition.row === row && candidate.startPosition.col === col);
@@ -195,7 +198,7 @@ export function App() {
   if (screen === "lobby") return <main className="lobby-screen"><div className="lobby-card"><p className="eyebrow">SALA DE ESPERA</p><h1>{room?.code ?? joinCode}</h1><p>Comparte este código.</p><div className="players">{room?.players.map((remote) => <div className="player-row" key={remote.id}><span className="dot player-dot" />{remote.name}{remote.id === room.hostId && " · anfitrión"}</div>)}</div>{room?.hostId === myPlayerId ? <button className="gold-button" disabled={!room || room.players.length < 2} onClick={() => socket.emit("room:start")}>Iniciar partida</button> : <p className="hint">Esperando al anfitrión…</p>}{error && <p className="error">{error}</p>}</div></main>;
 
   return <main><header><div><p className="eyebrow">MVP · FASE 4</p><h1>Laberinto Dinámico</h1><p className="subtitle">{myTurn ? "Tu turno" : "Turno del rival"}</p></div><div className="turn-info"><div className="badge">{myTurn ? "TU TURNO" : "TURNO DEL RIVAL"}</div><div className="objective-summary"><span>Objetivo actual</span><strong>{privateObjective ?? "Completados"}</strong><small>Progreso: {privateProgress.index} / {privateProgress.total}</small></div></div></header>
-    <section className="layout"><div className="board-wrap"><div className="board" style={{ width: SIZE, height: SIZE }}>{board.tiles.map((row, r) => row.map((tile, c) => <Cell key={tile.id} tile={tile} objective={tile.objectId === privateObjective} doorState={doorAt(r, c)} active={reachableCells.has(`${r},${c}`)} onClick={() => move({ row: r, col: c })} />))}{board.players.map((remote, index) => { const position = visualPositions[remote.id] ?? null; return position && <div className={`token player-token-${index} ${instantTokens[remote.id] ? "token-instant" : ""}`} role="img" aria-label={`Ficha de ${remote.id === playerId ? "tu jugador" : `jugador ${index + 1}`}`} key={remote.id} style={{ left: position.col * CELL + CELL / 2, top: position.row * CELL + CELL / 2 }}>♞</div>; })}</div><p className="message">{winner ? "¡Victoria! Has escapado del laberinto." : message}</p><button className="gold-button end-turn" disabled={!myTurn || serverGame?.phase !== "MOVEMENT" || winner} onClick={() => socket.emit("turn:end")}>Finalizar turno</button></div>
+    <section className="layout"><div className="board-wrap"><div className="board-stage"><div className="insertion-arrows" aria-label="Puntos de inserción de la pieza móvil">{INSERTABLE.map((index) => <div className="insertion-row" key={`row-${index}`}>{insertionButton({ axis: "row", index, from: "left" }, `Insertar desde la izquierda en la fila ${index + 1}`, "→")}{insertionButton({ axis: "row", index, from: "right" }, `Insertar desde la derecha en la fila ${index + 1}`, "←")}</div>)}{INSERTABLE.map((index) => <div className="insertion-column" key={`column-${index}`}>{insertionButton({ axis: "column", index, from: "top" }, `Insertar desde arriba en la columna ${index + 1}`, "↓")}{insertionButton({ axis: "column", index, from: "bottom" }, `Insertar desde abajo en la columna ${index + 1}`, "↑")}</div>)}</div><div className="board" style={{ width: SIZE, height: SIZE }}>{board.tiles.map((row, r) => row.map((tile, c) => <Cell key={tile.id} tile={tile} objective={tile.objectId === privateObjective} doorState={doorAt(r, c)} active={reachableCells.has(`${r},${c}`)} onClick={() => move({ row: r, col: c })} />))}{board.players.map((remote, index) => { const position = visualPositions[remote.id] ?? null; return position && <div className={`token player-token-${index} ${instantTokens[remote.id] ? "token-instant" : ""}`} role="img" aria-label={`Ficha de ${remote.id === playerId ? "tu jugador" : `jugador ${index + 1}`}`} key={remote.id} style={{ left: position.col * CELL + CELL / 2, top: position.row * CELL + CELL / 2 }}>♞</div>; })}</div></div>{winner && <p className="message">¡Victoria! Has escapado del laberinto.</p>}<button className="gold-button end-turn" disabled={!myTurn || serverGame?.phase !== "MOVEMENT" || winner} onClick={() => socket.emit("turn:end")}>Finalizar turno</button></div>
       <aside><div className="panel"><h2>Pieza adicional</h2><div className="spare"><Cell tile={board.spare} active={false} disabled onClick={() => undefined} /></div><button className="gold-button" disabled={!canInsert} onClick={() => socket.emit("game:rotate", { quarterTurns: 1 })}>↻ Rotar 90°</button></div><div className="panel"><h2>Inserción</h2><p className="hint">Una inserción por turno.</p><div className="controls">{INSERTABLE.map((index) => <div className="control-group" key={`row-${index}`}><span>Fila {index + 1}</span><button disabled={!canInsert} aria-label={`Insertar por la izquierda en la fila ${index + 1}`} onClick={() => insertBoard({ axis: "row", index, from: "left" })}>←</button><button disabled={!canInsert} aria-label={`Insertar por la derecha en la fila ${index + 1}`} onClick={() => insertBoard({ axis: "row", index, from: "right" })}>→</button></div>)}{INSERTABLE.map((index) => <div className="control-group" key={`column-${index}`}><span>Col. {index + 1}</span><button disabled={!canInsert} aria-label={`Insertar por arriba en la columna ${index + 1}`} onClick={() => insertBoard({ axis: "column", index, from: "top" })}>↑</button><button disabled={!canInsert} aria-label={`Insertar por abajo en la columna ${index + 1}`} onClick={() => insertBoard({ axis: "column", index, from: "bottom" })}>↓</button></div>)}</div></div></aside>
     </section>
   </main>;
