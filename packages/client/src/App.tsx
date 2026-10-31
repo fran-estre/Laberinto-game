@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { io } from "socket.io-client";
 import {
   addPlayer,
+  BOARD_SIZE,
   canMove,
   canEscape,
   findRoute,
@@ -28,9 +29,15 @@ import {
 } from "./keyboardControls.js";
 import {
   INSERTABLE,
-  insertionShift,
+  INSERTION_ANIMATION_DURATION_MS,
   isReverseInsertion,
 } from "./insertionControls.js";
+import {
+  createInsertionAnimation,
+  hasInsertedSpare,
+  isInInsertionLine,
+  type InsertionAnimation,
+} from "./insertionAnimation.js";
 
 const SIZE = 540;
 const CELL = SIZE / 9;
@@ -66,7 +73,6 @@ type ServerGameState = {
   }>;
 };
 type VisualPosition = Position | null;
-let animatedTileOffsets = new Map<string, { x: number; y: number }>();
 const describePosition = (position: Position) =>
   `(${position.row}, ${position.col})`;
 
@@ -107,7 +113,7 @@ function Cell({
   objective,
   doorState,
   disabled = false,
-  insertionOffset,
+  hidden = false,
   onClick,
 }: {
   tile: Tile;
@@ -115,21 +121,16 @@ function Cell({
   objective?: boolean;
   doorState?: "open" | "closed";
   disabled?: boolean;
-  insertionOffset?: { x: number; y: number };
+  hidden?: boolean;
   onClick: () => void;
 }) {
   const labels = [`Celda ${tile.id}`];
   if (tile.objectId) labels.push(`Objetivo ${tile.objectId}`);
   if (doorState)
     labels.push(`Puerta ${doorState === "open" ? "abierta" : "cerrada"}`);
-  const offset = insertionOffset ?? animatedTileOffsets.get(tile.id);
-  const style = offset
-    ? { transform: `translate(${offset.x * CELL}px, ${offset.y * CELL}px)` }
-    : undefined;
   return (
     <button
-      className={`cell ${tile.fixed ? "fixed" : ""} ${active ? "reachable" : ""} ${offset ? "tile-insertion" : ""}`}
-      style={style}
+      className={`cell ${tile.fixed ? "fixed" : ""} ${active ? "reachable" : ""} ${hidden ? "cell-hidden" : ""}`}
       onClick={onClick}
       aria-label={labels.join(", ")}
       disabled={disabled}
@@ -208,12 +209,11 @@ export function App() {
   const animationTimers = useRef(
     new Map<string, ReturnType<typeof setTimeout>[]>(),
   );
-  const lastInsertionRef = useRef<Insertion>();
   const receivedServerGameRef = useRef(false);
-  const [insertionAnimation, setInsertionAnimation] = useState<{
-    insertion: Insertion;
-    active: boolean;
-  }>();
+  const insertionSequence = useRef(0);
+  const [insertionAnimation, setInsertionAnimation] = useState<
+    InsertionAnimation & { id: number }
+  >();
   const [visualPositions, setVisualPositions] = useState<
     Record<string, VisualPosition>
   >(() =>
@@ -270,25 +270,17 @@ export function App() {
   const playerId = myPlayerId || FALLBACK_ID;
   useEffect(() => {
     if (!serverGame) return;
-    let animationTimer: ReturnType<typeof setTimeout> | undefined;
-    const insertion = serverGame.lastInsertion;
-    const previousInsertion = lastInsertionRef.current;
-    const isNewInsertion =
-      insertion &&
-      (!previousInsertion ||
-        insertion.axis !== previousInsertion.axis ||
-        insertion.index !== previousInsertion.index ||
-        insertion.from !== previousInsertion.from);
-    if (receivedServerGameRef.current && isNewInsertion) {
-      setInsertionAnimation({ insertion, active: true });
-      animationTimer = setTimeout(
-        () => setInsertionAnimation({ insertion, active: false }),
-        30,
-      );
-    }
-    lastInsertionRef.current = insertion;
-    receivedServerGameRef.current = true;
     const previous = boardRef.current;
+    const insertion = serverGame.lastInsertion;
+    const isNewInsertion =
+      receivedServerGameRef.current && insertion && hasInsertedSpare(previous, serverGame);
+    if (isNewInsertion) {
+      setInsertionAnimation({
+        ...createInsertionAnimation(previous, insertion),
+        id: ++insertionSequence.current,
+      });
+    }
+    receivedServerGameRef.current = true;
     const next = {
       ...previous,
       tiles: serverGame.board,
@@ -309,12 +301,32 @@ export function App() {
     };
     boardRef.current = next;
     setBoard(next);
-    for (const remote of next.players)
-      animateToken(previous, remote.id, remote.position);
-    return () => {
-      if (animationTimer !== undefined) clearTimeout(animationTimer);
-    };
+    if (isNewInsertion) {
+      // Las fichas viajan con sus piezas, no por caminos calculados sobre el tablero anterior.
+      animationTimers.current.forEach((timers) => timers.forEach((timer) => clearTimeout(timer)));
+      animationTimers.current.clear();
+      setInstantTokens(Object.fromEntries(next.players.map((remote) => [remote.id, true])));
+      setVisualPositions(
+        Object.fromEntries(next.players.map((remote) => [remote.id, remote.position])),
+      );
+    } else {
+      for (const remote of next.players)
+        animateToken(previous, remote.id, remote.position);
+    }
   }, [serverGame, privateObjective, playerId]);
+  // Independiente de actualizaciones privadas/de red: no reinicia ni interrumpe la animación.
+  useEffect(() => {
+    if (!insertionAnimation) return;
+    const timer = setTimeout(() => {
+      setInsertionAnimation((current) =>
+        current?.id === insertionAnimation.id ? undefined : current,
+      );
+    }, INSERTION_ANIMATION_DURATION_MS + 250);
+    return () => clearTimeout(timer);
+  }, [insertionAnimation]);
+  useEffect(() => {
+    if (!insertionAnimation) setInstantTokens({});
+  }, [insertionAnimation]);
   const player =
     board.players.find((item) => item.id === playerId) ?? board.players[0]!;
   const reachableCells = useMemo(
@@ -332,8 +344,12 @@ export function App() {
     playerId,
     myTurn,
     phase: serverGame?.phase,
+    inserting: Boolean(insertionAnimation),
   });
-  keyboardState.current = { board, playerId, myTurn, phase: serverGame?.phase };
+  keyboardState.current = {
+    board, playerId, myTurn, phase: serverGame?.phase,
+    inserting: Boolean(insertionAnimation),
+  };
   const createRoom = () => {
     if (!name.trim()) return setError("Escribe tu nombre");
     socket.connect();
@@ -370,12 +386,13 @@ export function App() {
     }
   };
   const insertBoard = (insertion: Insertion) => {
-    if (myTurn && serverGame?.phase === "INSERTION")
+    if (!insertionAnimation && myTurn && serverGame?.phase === "INSERTION")
       socket.emit("game:insert", { insertion });
   };
   const move = (position: Position) => {
     if (
       myTurn &&
+      !insertionAnimation &&
       serverGame?.phase === "MOVEMENT" &&
       reachableCells.has(`${position.row},${position.col}`)
     )
@@ -405,11 +422,12 @@ export function App() {
           playerId: currentPlayerId,
           myTurn: currentTurn,
           phase,
+          inserting,
         } = keyboardState.current;
         const currentPlayer = currentBoard.players.find(
           (candidate) => candidate.id === currentPlayerId,
         );
-        if (!currentPlayer || !currentTurn || phase !== "MOVEMENT") return;
+        if (inserting || !currentPlayer || !currentTurn || phase !== "MOVEMENT") return;
         const destination = adjacentPosition(
           currentPlayer.position,
           currentDirection,
@@ -583,7 +601,7 @@ export function App() {
     routeTimers.push(setTimeout(() => console.groupEnd(), elapsed + 550));
     animationTimers.current.set(playerIdToAnimate, routeTimers);
   };
-  const canInsert = myTurn && serverGame?.phase === "INSERTION";
+  const canInsert = !insertionAnimation && myTurn && serverGame?.phase === "INSERTION";
   const insertionButton = (
     insertion: Insertion,
     label: string,
@@ -623,27 +641,6 @@ export function App() {
       ? ("open" as const)
       : ("closed" as const);
   };
-  const insertionOffsetFor = (row: number, col: number) => {
-    const insertion = insertionAnimation?.active
-      ? insertionAnimation.insertion
-      : undefined;
-    if (
-      !insertion ||
-      (insertion.axis === "row"
-        ? row !== insertion.index
-        : col !== insertion.index)
-    )
-      return undefined;
-    return insertionShift(insertion);
-  };
-  const tileOffsets: Array<readonly [string, { x: number; y: number }]> = [];
-  board.tiles.forEach((row, rowIndex) =>
-    row.forEach((tile, col) => {
-      const offset = insertionOffsetFor(rowIndex, col);
-      if (offset) tileOffsets.push([tile.id, offset]);
-    }),
-  );
-  animatedTileOffsets = new Map(tileOffsets);
 
   if (screen === "home")
     return (
@@ -750,7 +747,11 @@ export function App() {
                 </div>
               ))}
             </div>
-            <div className="board" style={{ width: SIZE, height: SIZE }}>
+            <div
+              className="board"
+              aria-busy={Boolean(insertionAnimation)}
+              style={{ width: SIZE, height: SIZE }}
+            >
               {board.tiles.map((row, r) =>
                 row.map((tile, c) => (
                   <Cell
@@ -758,12 +759,72 @@ export function App() {
                     tile={tile}
                     objective={tile.objectId === privateObjective}
                     doorState={doorAt(r, c)}
-                    active={reachableCells.has(`${r},${c}`)}
+                    active={!insertionAnimation && reachableCells.has(`${r},${c}`)}
+                    disabled={Boolean(insertionAnimation)}
+                    hidden={Boolean(
+                      insertionAnimation &&
+                      isInInsertionLine({ row: r, col: c }, insertionAnimation.insertion),
+                    )}
                     onClick={() => move({ row: r, col: c })}
                   />
                 )),
               )}
+              {insertionAnimation && (
+                <div
+                  key={insertionAnimation.id}
+                  className="insertion-layer"
+                  style={{
+                    "--insertion-x": `${insertionAnimation.shift.x * 100 / BOARD_SIZE}%`,
+                    "--insertion-y": `${insertionAnimation.shift.y * 100 / BOARD_SIZE}%`,
+                    animationDuration: `${INSERTION_ANIMATION_DURATION_MS}ms`,
+                  } as CSSProperties}
+                  aria-hidden="true"
+                  onAnimationEnd={(event) => {
+                    if (event.target === event.currentTarget)
+                      setInsertionAnimation((current) =>
+                        current?.id === insertionAnimation.id ? undefined : current,
+                      );
+                  }}
+                >
+                  {insertionAnimation.tiles.map(({ tile, position }) => (
+                    <div
+                      key={tile.id}
+                      className="insertion-tile"
+                      data-tile-id={tile.id}
+                      data-row={position.row}
+                      data-col={position.col}
+                      style={{
+                        left: `${position.col * 100 / BOARD_SIZE}%`,
+                        top: `${position.row * 100 / BOARD_SIZE}%`,
+                        width: `${100 / BOARD_SIZE}%`,
+                        height: `${100 / BOARD_SIZE}%`,
+                      }}
+                    >
+                      <Cell
+                        tile={tile}
+                        objective={tile.objectId === privateObjective}
+                        active={false}
+                        disabled
+                        onClick={() => undefined}
+                      />
+                    </div>
+                  ))}
+                  {insertionAnimation.players.map((remote) => (
+                    <div
+                      key={remote.id}
+                      className={`token player-token-${board.players.findIndex((player) => player.id === remote.id)}`}
+                      style={{
+                        left: `${(remote.position.col + 0.5) * 100 / BOARD_SIZE}%`,
+                        top: `${(remote.position.row + 0.5) * 100 / BOARD_SIZE}%`,
+                      }}
+                    >
+                      {"\u265e"}
+                    </div>
+                  ))}
+                </div>
+              )}
               {board.players.map((remote, index) => {
+                if (insertionAnimation?.players.some((player) => player.id === remote.id)) return null;
                 const position = visualPositions[remote.id] ?? null;
                 return (
                   position && (
@@ -773,8 +834,8 @@ export function App() {
                       aria-label={`Ficha de ${remote.id === playerId ? "tu jugador" : `jugador ${index + 1}`}`}
                       key={remote.id}
                       style={{
-                        left: position.col * CELL + CELL / 2,
-                        top: position.row * CELL + CELL / 2,
+                        left: `${(position.col + 0.5) * 100 / BOARD_SIZE}%`,
+                        top: `${(position.row + 0.5) * 100 / BOARD_SIZE}%`,
                       }}
                     >
                       ♞
@@ -808,12 +869,14 @@ export function App() {
           <section className="panel spare-panel">
             <h2>Pieza adicional</h2>
             <div className="spare">
-              <Cell
-                tile={board.spare}
-                active={false}
-                disabled
-                onClick={() => undefined}
-              />
+              {!insertionAnimation && (
+                <Cell
+                  tile={board.spare}
+                  active={false}
+                  disabled
+                  onClick={() => undefined}
+                />
+              )}
             </div>
             <button
               className="gold-button"
@@ -825,7 +888,7 @@ export function App() {
           </section>
           <button
             className="gold-button end-turn-right"
-            disabled={!myTurn || serverGame?.phase !== "MOVEMENT" || winner}
+            disabled={Boolean(insertionAnimation) || !myTurn || serverGame?.phase !== "MOVEMENT" || winner}
             onClick={() => socket.emit("turn:end")}
           >
             Finalizar turno
