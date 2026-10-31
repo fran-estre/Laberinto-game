@@ -62,8 +62,15 @@ aside { width: 260px; display: grid; gap: 18px; } .panel { background: #2a211a; 
 
 /* Estilo medieval, movimiento de fichas y accesibilidad visual. */
 .token { transition: left 500ms ease, top 500ms ease; will-change: left, top; }
-.tile-insertion { transition: transform 1000ms ease; will-change: transform; }
-.cell { transition: transform 1000ms ease; }
+.cell-hidden { visibility: hidden; }
+/* Diez piezas desde sus coordenadas iniciales; el tablero recorta los extremos. */
+.insertion-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; animation: insert-line linear both; will-change: transform; }
+.insertion-tile { position: absolute; }
+.board[aria-busy="true"] .cell:disabled { opacity: 1; cursor: wait; }
+@keyframes insert-line {
+  from { transform: translate(0, 0); }
+  to { transform: translate(var(--insertion-x), var(--insertion-y)); }
+}
 .board-wrap > .end-turn { display: none; }
 .end-turn-right { width: 100%; }
 .end-turn-right:disabled { display: block; }
@@ -79,7 +86,11 @@ aside .spare, aside .spare .cell { width: 104px; height: 104px; }
 .token-instant { transition: none !important; }
 .cell:focus-visible, .gold-button:focus-visible, .controls button:focus-visible { outline: 3px solid #fff0ac; outline-offset: 2px; }
 .gold-button:disabled, .controls button:disabled, .cell:disabled { cursor: not-allowed; opacity: .45; }
-@media (prefers-reduced-motion: reduce) { .token, .cell, .tile-insertion { transition: none; } * { scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .token, .cell { transition: none; }
+  .insertion-layer { animation-duration: 1ms !important; }
+  * { scroll-behavior: auto !important; }
+}
 
 .insertion-arrow {
   width: 24px !important;
